@@ -1,5 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { MenuItem } from '@/lib/drupalClient';
+
+// Drupal menu item structure (raw format from Drupal API)
+type DrupalMenuItem = {
+  key: string;
+  title: string;
+  description: string | null;
+  uri: string;
+  alias: string;
+  external: boolean;
+  absolute: string;
+  relative: string;
+  existing: boolean;
+  weight: string;
+  expanded: boolean;
+  enabled: boolean;
+  uuid: string | null;
+  options: any[];
+  children?: DrupalMenuItem[];
+}
 
 /**
  * Mock Drupal CE-API endpoint - All routes
@@ -7,27 +25,71 @@ import { MenuItem } from '@/lib/drupalClient';
  */
 
 // Mock menu data
-const mockMenus: Record<string, MenuItem[]> = {
+const mockMenus: Record<string, DrupalMenuItem[]> = {
   main: [
     {
+      key: 'standard.front_page',
       title: 'Home',
-      url: '/',
-      children: []
+      description: '',
+      uri: '',
+      alias: '',
+      external: false,
+      absolute: 'http://localhost:3000/',
+      relative: '/',
+      existing: true,
+      weight: '0',
+      expanded: false,
+      enabled: true,
+      uuid: null,
+      options: []
     },
     {
+      key: 'node-1-menu-item',
       title: 'Page 1',
-      url: '/node/1',
-      children: []
+      description: null,
+      uri: 'node/1',
+      alias: 'node/1',
+      external: false,
+      absolute: 'http://localhost:3000/node/1',
+      relative: '/node/1',
+      existing: true,
+      weight: '1',
+      expanded: false,
+      enabled: true,
+      uuid: 'aa9f3167-a1b0-4f5b-b088-33cf753a9331',
+      options: []
     },
     {
+      key: 'node-2-menu-item',
       title: 'Page 2',
-      url: '/node/2',
-      children: []
+      description: null,
+      uri: 'node/2',
+      alias: 'node/2',
+      external: false,
+      absolute: 'http://localhost:3000/node/2',
+      relative: '/node/2',
+      existing: true,
+      weight: '2',
+      expanded: false,
+      enabled: true,
+      uuid: 'c7b2e697-e61c-4787-870f-4d3622355382',
+      options: []
     },
     {
+      key: 'node-3-menu-item',
       title: 'Page 3',
-      url: '/node/3',
-      children: []
+      description: null,
+      uri: 'node/3',
+      alias: 'node/3',
+      external: false,
+      absolute: 'http://localhost:3000/node/3',
+      relative: '/node/3',
+      existing: true,
+      weight: '3',
+      expanded: false,
+      enabled: true,
+      uuid: 'd8a3f789-b2c1-4d56-9012-45ef67890abc',
+      options: []
     }
   ]
 };
