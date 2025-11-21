@@ -1,10 +1,15 @@
 import axios, { AxiosResponse, AxiosError } from "axios"
 import { ServerResponse } from 'http';
+import https from 'https';
 
 const drupalBaseUrl = process.env.NEXT_PUBLIC_DRUPAL_BASE_URL;
 const ceApiEndpoint = '/ce-api'
 
-type PageData = {
+// For development: Allow self-signed certificates (like GitHub Codespaces)
+// WARNING: Do not use in production!
+const rejectUnauthorized = process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0';
+
+export type PageData = {
     title?: string;
     metatags?: {
         meta: { name: string; content: string; }[];
@@ -24,7 +29,27 @@ type PageData = {
     };
 }
 
-type MenuItem = {
+// Drupal menu item structure
+type DrupalMenuItem = {
+    key: string;
+    title: string;
+    description: string | null;
+    uri: string;
+    alias: string;
+    external: boolean;
+    absolute: string;
+    relative: string;
+    existing: boolean;
+    weight: string;
+    expanded: boolean;
+    enabled: boolean;
+    uuid: string | null;
+    options: any[];
+    children?: DrupalMenuItem[];
+}
+
+// Our normalized menu item structure
+export type MenuItem = {
     title: string;
     url: string;
     children?: MenuItem[];
@@ -36,27 +61,44 @@ type ErrorResponse = {
     data?: PageData;
 }
 
-const DEFAULT_FETCH_PROXY_HEADERS = ['cookie'];
+// Headers to forward from client requests to Drupal
+const DEFAULT_FETCH_PROXY_HEADERS = [
+    'cookie',
+    'authorization',
+    'x-csrf-token',
+    'accept-language'
+];
+
+// Response headers to pass through from Drupal backend to the client
 const DEFAULT_PASS_THROUGH_HEADERS = [
     'cache-control',
     'content-language',
     'set-cookie',
     'x-drupal-cache',
-    'x-drupal-dynamic-cache'
+    'x-drupal-dynamic-cache',
+    'etag',
+    'vary'
 ];
 
 export const drupalClient = axios.create({
     baseURL: `${drupalBaseUrl}${ceApiEndpoint}`,
-    withCredentials: true
+    withCredentials: true,
+    timeout: 30000,
+    // Allow self-signed certificates in development
+    httpsAgent: new https.Agent({
+        rejectUnauthorized: rejectUnauthorized
+    })
 });
 
 function handleError(error: AxiosError, serverResponse?: ServerResponse): ErrorResponse {
     if (error.response) {
         const responseData = error.response.data as PageData;
         responseData.statusCode = error.response.status;
-        
+
         if (serverResponse) {
             serverResponse.statusCode = error.response.status;
+            // Pass through headers from error responses too
+            setResponseHeaders(error.response, serverResponse);
         }
 
         return {
@@ -67,12 +109,12 @@ function handleError(error: AxiosError, serverResponse?: ServerResponse): ErrorR
     } else if (error.request) {
         return {
             statusCode: 503,
-            message: error.message
+            message: 'Service unavailable - could not reach Drupal backend'
         };
     } else {
         return {
-            statusCode: 400,
-            message: error.message
+            statusCode: 500,
+            message: error.message || 'Internal server error'
         };
     }
 }
@@ -86,13 +128,20 @@ function validateResponse(data: PageData): void {
     }
 }
 
-function handleRedirect(data: PageData, serverResponse?: ServerResponse) {
+function handleRedirect(data: PageData, serverResponse?: ServerResponse): boolean {
     if (!data.redirect) return false;
+
+    const { url, statusCode = 302, external = false } = data.redirect;
 
     if (serverResponse) {
         // Server-side redirect
-        serverResponse.writeHead(data.redirect.statusCode, {
-            Location: data.redirect.url
+        // Validate redirect status code
+        const validRedirectCode = [301, 302, 303, 307, 308].includes(statusCode)
+            ? statusCode
+            : 302;
+
+        serverResponse.writeHead(validRedirectCode, {
+            Location: url
         });
         serverResponse.end();
         return true;
@@ -126,6 +175,15 @@ function setResponseHeaders(
     });
 }
 
+// Transform Drupal menu items to our format
+function transformDrupalMenuItem(item: DrupalMenuItem): MenuItem {
+    return {
+        title: item.title,
+        url: item.relative || item.alias || item.uri || '/',
+        children: item.children ? item.children.map(transformDrupalMenuItem) : []
+    };
+}
+
 export async function fetchMenu(
     incomingHeaders?: Record<string, string>,
     serverResponse?: ServerResponse,
@@ -140,15 +198,22 @@ export async function fetchMenu(
             options.proxyHeaders
         );
 
-        const response = await drupalClient.get<MenuItem[]>('/api/menu_items/main', { headers });
-        
+        const response = await drupalClient.get<DrupalMenuItem[]>('/api/menu_items/main', { headers });
+
         if (serverResponse) {
             setResponseHeaders(response, serverResponse, options.passThroughHeaders);
         }
 
-        return response.data;
+        // Transform Drupal menu items to our format
+        if (Array.isArray(response.data)) {
+            return response.data.map(transformDrupalMenuItem);
+        }
+
+        return [];
     } catch (error) {
-        throw handleError(error as AxiosError, serverResponse);
+        // Return empty array on error instead of throwing
+        console.error('Failed to fetch menu:', error);
+        return [];
     }
 }
 
@@ -169,7 +234,7 @@ export async function fetchPage(
         );
 
         const response = await drupalClient.get<PageData>(cleanPath, { headers });
-        
+
         if (serverResponse) {
             setResponseHeaders(response, serverResponse, options.passThroughHeaders);
         }
@@ -193,4 +258,50 @@ export async function fetchPage(
         }
         throw errorResponse;
     }
+}
+
+// Next.js App Router helpers
+// Convert Next.js Headers object to plain object
+export function convertNextHeaders(headers: Headers): Record<string, string> {
+    const headersObj: Record<string, string> = {};
+    headers.forEach((value, key) => {
+        headersObj[key.toLowerCase()] = value;
+    });
+    return headersObj;
+}
+
+// Simplified API for App Router - handles redirects via Next.js redirect()
+export async function fetchPageForAppRouter(
+    path: string,
+    headers?: Headers,
+    options?: {
+        proxyHeaders?: string[];
+    }
+): Promise<PageData> {
+    const headersObj = headers ? convertNextHeaders(headers) : undefined;
+    const pageData = await fetchPage(path, headersObj, undefined, options);
+
+    // For App Router, handle redirects using Next.js redirect function
+    if (pageData.redirect) {
+        const { redirect } = await import('next/navigation');
+        const redirectType = [301, 308].includes(pageData.redirect.statusCode)
+            ? 'replace' as const
+            : 'push' as const;
+
+        redirect(pageData.redirect.url, redirectType);
+    }
+
+    return pageData;
+}
+
+// Simplified API for App Router menus
+export async function fetchMenuForAppRouter(
+    menuName: string = 'main',
+    headers?: Headers,
+    options?: {
+        proxyHeaders?: string[];
+    }
+): Promise<MenuItem[]> {
+    const headersObj = headers ? convertNextHeaders(headers) : undefined;
+    return fetchMenu(headersObj, undefined, options);
 }

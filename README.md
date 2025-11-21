@@ -10,14 +10,17 @@
 - Rendering custom elements via components
 - Rendering a tree of custom elements
 - Forwarding /some-page requests to the backend and rendering results
-- breadcrumbs
-- metatags
-- messages
+- Breadcrumbs
+- Metatags
+- Messages
 - Drupal error pages
-- Drupal redirect support
-  
+- Drupal redirect support (301, 302, 303, 307, 308)
+- **Cookie forwarding** - Authentication cookies are forwarded to Drupal for personalized content
+- **Menu support** - Main menu integrated in layout with support for nested items
+- **Header pass-through** - Drupal cache headers, language, and other headers properly forwarded
+- **App Router support** - Full Next.js App Router compatibility with streaming and server components
+
 ### Not or not fully supported
-- Menus (component needs to be ported)
 - Drupal forms
 - Frontend login
 - Custom layouts
@@ -132,3 +135,151 @@ npm run preview
 ```
 
 Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+
+## Mock Mode for Development
+
+You can run this project without a Drupal backend using mock mode. This is useful for:
+- Development without backend access
+- Testing and demos
+- Learning the component structure
+
+### Enabling Mock Mode
+
+1. Create a `.env.local` file (or copy `.env.example`):
+   ```bash
+   cp .env.example .env.local
+   ```
+
+2. Set mock mode:
+   ```bash
+   NEXT_PUBLIC_USE_MOCK="true"
+   NEXT_PUBLIC_SITE_URL="http://localhost:3000"
+   ```
+
+3. Run the development server:
+   ```bash
+   npm run dev
+   ```
+
+### Available Mock Routes
+
+The mock API provides several example pages:
+
+- `/demo-first` - Simple article page
+- `/ldp-example` - Complex channel page with teasers
+- `/redirect-test` - Tests redirect functionality
+- `/science` - Science channel page
+- `/sport` - Sport channel page
+- `/info` - Info channel page
+
+### Mock API Endpoints
+
+Mock data is served via Next.js API routes:
+- `GET /api/mock/[...path]` - Page content
+- `GET /api/mock/menu/[menuName]` - Menu items
+
+You can extend the mock data by editing:
+- `/app/api/mock/[...path]/route.ts` - Add more page routes
+- `/app/api/mock/menu/[menuName]/route.ts` - Add more menus
+- `/mockData.js` - Add more mock data structures
+
+## API Documentation
+
+### Data Fetching with Cookie Forwarding
+
+This project implements complete cookie forwarding and header management inspired by [nuxtjs-drupal-ce](https://github.com/drunomics/nuxtjs-drupal-ce).
+
+#### App Router (Recommended)
+
+For Next.js App Router, use the simplified helpers:
+
+```typescript
+import { headers } from 'next/headers';
+import { fetchPageForAppRouter, fetchMenuForAppRouter } from '@/lib/drupalClient';
+
+// Fetch page with automatic cookie forwarding and redirect handling
+export default async function Page() {
+  const headersList = await headers();
+  const pageData = await fetchPageForAppRouter('/node/1', headersList);
+
+  // Redirects are handled automatically via Next.js redirect()
+  // Cookies are automatically forwarded to Drupal
+
+  return <div>{pageData.title}</div>;
+}
+
+// Fetch menu
+const mainMenu = await fetchMenuForAppRouter('main', headersList);
+```
+
+#### Pages Router (Legacy)
+
+For Pages Router (moved to `pages-legacy/`):
+
+```typescript
+import { fetchPage, fetchMenu } from '@/lib/drupalClient';
+
+export async function getServerSideProps(context) {
+  const pageData = await fetchPage(
+    context.resolvedUrl,
+    context.req.headers,
+    context.res
+  );
+
+  return { props: { pageData } };
+}
+```
+
+### Headers Forwarded
+
+**Request headers forwarded to Drupal:**
+- `cookie` - For authentication and personalization
+- `authorization` - For API authentication
+- `x-csrf-token` - For CSRF protection
+- `accept-language` - For content language negotiation
+
+**Response headers passed back to client:**
+- `cache-control` - Caching directives
+- `content-language` - Content language
+- `set-cookie` - Session cookies
+- `x-drupal-cache` - Drupal cache status
+- `x-drupal-dynamic-cache` - Drupal dynamic cache status
+- `etag` - Cache validation
+- `vary` - Vary header for caching
+
+### Redirect Handling
+
+The implementation supports all HTTP redirect status codes:
+- **301** - Permanent redirect (with replace)
+- **302** - Temporary redirect
+- **303** - See Other
+- **307** - Temporary redirect (preserves method)
+- **308** - Permanent redirect (preserves method, with replace)
+
+Redirects are handled server-side when possible, client-side otherwise.
+
+### Menu Integration
+
+Menus are fetched with cookie forwarding in the root layout:
+
+```typescript
+// app/layout.tsx
+const mainMenu = await fetchMenuForAppRouter('main', headersList);
+```
+
+The `Menu` component supports:
+- Nested menu items (configurable depth)
+- Custom styling via className props
+- Automatic active state handling
+- Responsive design
+
+### Custom Configuration
+
+You can customize header forwarding:
+
+```typescript
+const pageData = await fetchPage(path, headers, response, {
+  proxyHeaders: ['cookie', 'authorization', 'custom-header'],
+  passThroughHeaders: ['cache-control', 'set-cookie', 'custom-response-header']
+});
+```

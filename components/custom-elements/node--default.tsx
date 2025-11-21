@@ -25,8 +25,6 @@ const Node: React.FC<NodeProps> = ({
 }) => {
     return (
         <div className="node">
-            {title && <h2>Node: {title}</h2>}
-            
             {image && (
                 <div dangerouslySetInnerHTML={{ __html: image.content }} />
             )}

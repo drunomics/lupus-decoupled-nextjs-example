@@ -12,6 +12,4 @@ requireComponent.keys().forEach((fileName) => {
     components[componentName] = requireComponent(fileName).default;
 });
 
-console.log('Available custom-elements:', Object.keys(components));
-
 export default components;
