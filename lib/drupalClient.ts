@@ -1,6 +1,8 @@
 import axios, { AxiosResponse, AxiosError } from "axios"
 import { ServerResponse } from 'http';
 import https from 'https';
+// @ts-expect-error - next/config lacks type declarations
+import getConfig from 'next/config';
 import { PageData, DrupalMenuItem, MenuItem, ErrorResponse } from './types';
 
 const drupalBaseUrl = process.env.NEXT_PUBLIC_DRUPAL_BASE_URL;
@@ -13,16 +15,15 @@ const rejectUnauthorized = process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0';
 // Re-export types for backwards compatibility
 export type { PageData, MenuItem } from './types';
 
-// Headers to forward from client requests to Drupal
-const DEFAULT_FETCH_PROXY_HEADERS = [
+// Fallback defaults (used if config is not available, e.g., during build)
+const FALLBACK_PROXY_HEADERS = [
     'cookie',
     'authorization',
     'x-csrf-token',
     'accept-language'
 ];
 
-// Response headers to pass through from Drupal backend to the client
-const DEFAULT_PASS_THROUGH_HEADERS = [
+const FALLBACK_PASS_THROUGH_HEADERS = [
     'cache-control',
     'content-language',
     'set-cookie',
@@ -31,6 +32,15 @@ const DEFAULT_PASS_THROUGH_HEADERS = [
     'etag',
     'vary'
 ];
+
+// Get headers from Next.js config with fallbacks
+function getDrupalConfig() {
+    const { serverRuntimeConfig } = getConfig() || {};
+    return {
+        proxyHeaders: serverRuntimeConfig?.drupal?.proxyHeaders ?? FALLBACK_PROXY_HEADERS,
+        passThroughHeaders: serverRuntimeConfig?.drupal?.passThroughHeaders ?? FALLBACK_PASS_THROUGH_HEADERS
+    };
+}
 
 export const drupalClient = axios.create({
     baseURL: `${drupalBaseUrl}${ceApiEndpoint}`,
@@ -105,21 +115,23 @@ function handleRedirect(data: PageData, serverResponse?: ServerResponse): boolea
 
 function extractRequestHeaders(
     incomingHeaders: Record<string, string> = {},
-    proxyHeaders: string[] = DEFAULT_FETCH_PROXY_HEADERS
+    proxyHeaders?: string[]
 ): Record<string, string> {
+    const headers = proxyHeaders ?? getDrupalConfig().proxyHeaders;
     return Object.fromEntries(
-        proxyHeaders
-            .map(header => [header.toLowerCase(), incomingHeaders[header.toLowerCase()]])
-            .filter(([_, value]) => value !== undefined)
+        headers
+            .map((header: string) => [header.toLowerCase(), incomingHeaders[header.toLowerCase()]])
+            .filter(([_, value]: [string, string | undefined]) => value !== undefined)
     );
 }
 
 function setResponseHeaders(
     response: AxiosResponse,
     serverResponse: ServerResponse,
-    passThroughHeaders: string[] = DEFAULT_PASS_THROUGH_HEADERS
+    passThroughHeaders?: string[]
 ): void {
-    passThroughHeaders.forEach(header => {
+    const headers = passThroughHeaders ?? getDrupalConfig().passThroughHeaders;
+    headers.forEach((header: string) => {
         const value = response.headers[header.toLowerCase()];
         if (value) {
             serverResponse.setHeader(header, value);
@@ -212,8 +224,11 @@ export async function fetchPage(
     }
 }
 
-// Next.js App Router helpers
-// Convert Next.js Headers object to plain object
+/**
+ * Convert Next.js Headers object to plain object
+ * @param headers Next.js Headers object
+ * @returns Plain object with headers
+ */
 export function convertNextHeaders(headers: Headers): Record<string, string> {
     const headersObj: Record<string, string> = {};
     headers.forEach((value, key) => {
@@ -222,7 +237,13 @@ export function convertNextHeaders(headers: Headers): Record<string, string> {
     return headersObj;
 }
 
-// Simplified API for App Router - handles redirects via Next.js redirect()
+/**
+ * Simplified API for App Router - handles redirects via Next.js redirect
+ * @param path Drupal path
+ * @param headers Next.js Headers object
+ * @param options Options for fetching page data
+ * @returns Page data
+ */
 export async function fetchPageForAppRouter(
     path: string,
     headers?: Headers,
@@ -246,7 +267,13 @@ export async function fetchPageForAppRouter(
     return pageData;
 }
 
-// Simplified API for App Router menus
+/**
+ * Simplified API for App Router menus
+ * @param menuName Menu name
+ * @param headers Next.js Headers object
+ * @param options Options for fetching menu data
+ * @returns Menu data
+ */
 export async function fetchMenuForAppRouter(
     menuName: string = 'main',
     headers?: Headers,
