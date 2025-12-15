@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+/**
+ * Middleware proxy that forwards cache headers from Drupal to the client.
+ * Makes a lightweight HEAD request to Drupal's CE API to retrieve cache-related
+ * headers (cache-control, etag, vary, etc.) and applies them to the response.
+ */
 export async function proxy(request: NextRequest) {
   // Skip API routes and static assets
   if (request.nextUrl.pathname.startsWith('/_next') ||

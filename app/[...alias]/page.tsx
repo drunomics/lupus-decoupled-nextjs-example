@@ -20,22 +20,10 @@ export default async function DrupalPage({ params }: PageProps) {
     // fetchPageForAppRouter handles cookie forwarding and redirects automatically
     pageData = await fetchPageForAppRouter(path, headersList);
   } catch (error: any) {
-    console.error('Failed to fetch page:', error);
-
-    // Handle 404 errors
     if (error.statusCode === 404) {
       notFound();
     }
-
-    // For other errors, render error message
-    return (
-      <div className="p-4">
-        <h1 className="text-2xl font-bold text-red-600">Error</h1>
-        <p className="mt-2">
-          {error.message || 'An error occurred while loading the page.'}
-        </p>
-      </div>
-    );
+    throw error;
   }
 
   if (!pageData) {
@@ -44,6 +32,15 @@ export default async function DrupalPage({ params }: PageProps) {
 
   return (
     <div className="max-w-4xl mx-auto">
+      {pageData.metatags?.jsonld && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(pageData.metatags.jsonld).replace(/</g, '\\u003c'),
+          }}
+        />
+      )}
+
       {!Array.isArray(pageData.messages) && pageData.messages && (
         <Message messages={pageData.messages} />
       )}

@@ -14,6 +14,7 @@ export type PageData = {
     metatags?: {
         meta: { name: string; content: string; }[];
         link: { rel: string; href: string; }[];
+        jsonld?: Record<string, any> | Record<string, any>[];
     };
     messages?: string[] | Record<string, any>;
     breadcrumbs?: { text: string; url: string; }[];
