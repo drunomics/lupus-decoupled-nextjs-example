@@ -1,6 +1,7 @@
 import axios, { AxiosResponse, AxiosError } from "axios"
 import { ServerResponse } from 'http';
 import https from 'https';
+import { PageData, DrupalMenuItem, MenuItem, ErrorResponse } from './types';
 
 const drupalBaseUrl = process.env.NEXT_PUBLIC_DRUPAL_BASE_URL;
 const ceApiEndpoint = '/ce-api'
@@ -9,58 +10,8 @@ const ceApiEndpoint = '/ce-api'
 // WARNING: Do not use in production!
 const rejectUnauthorized = process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0';
 
-export type PageData = {
-    title?: string;
-    metatags?: {
-        meta: { name: string; content: string; }[];
-        link: { rel: string; href: string; }[];
-        jsonld?: Record<string, any> | Record<string, any>[];
-    };
-    messages?: string[] | Record<string, any>;
-    breadcrumbs?: { text: string; url: string; }[];
-    content?: {
-        element: string;
-        [key: string]: any;
-    };
-    statusCode?: number;
-    redirect?: {
-        url: string;
-        statusCode: number;
-        external: boolean;
-    };
-}
-
-// Drupal menu item structure
-type DrupalMenuItem = {
-    key: string;
-    title: string;
-    description: string | null;
-    uri: string;
-    alias: string;
-    external: boolean;
-    absolute: string;
-    relative: string;
-    existing: boolean;
-    weight: string;
-    expanded: boolean;
-    enabled: boolean;
-    uuid: string | null;
-    options: any[];
-    children?: DrupalMenuItem[];
-}
-
-// Our normalized menu item structure
-export type MenuItem = {
-    title: string;
-    url: string;
-    children?: MenuItem[];
-}
-
-type ErrorResponse = {
-    statusCode: number;
-    message: string;
-    data?: PageData;
-}
+// Re-export types for backwards compatibility
+export type { PageData, MenuItem } from './types';
 
 // Headers to forward from client requests to Drupal
 const DEFAULT_FETCH_PROXY_HEADERS = [

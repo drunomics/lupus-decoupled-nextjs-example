@@ -1,5 +1,6 @@
 import React from 'react';
 import DynamicComponent from '../DynamicComponent';
+import SlotData from './SlotData';
 
 /** 
  * Copy of the default node--default.tsx file, slightly adapted
@@ -37,10 +38,9 @@ const Node: React.FC<NodeProps> = ({
             )}
             
             {body && (
-                <div className="prose max-w-none [&_a]:text-blue-600" 
-                    dangerouslySetInnerHTML={{ 
-                        __html: Array.isArray(body) ? body.join('') : body 
-                    }} 
+                <SlotData
+                    content={body}
+                    className="prose max-w-none [&_a]:text-blue-600"
                 />
             )}
             

@@ -3,24 +3,7 @@
  * This file contains mock data used during development when no Drupal backend is available
  */
 
-// Drupal menu item structure (raw format from Drupal API)
-export type DrupalMenuItem = {
-  key: string;
-  title: string;
-  description: string | null;
-  uri: string;
-  alias: string;
-  external: boolean;
-  absolute: string;
-  relative: string;
-  existing: boolean;
-  weight: string;
-  expanded: boolean;
-  enabled: boolean;
-  uuid: string | null;
-  options: any[];
-  children?: DrupalMenuItem[];
-}
+import { DrupalMenuItem } from '../../lib/types';
 
 // Mock menu data
 export const mockMenus: Record<string, DrupalMenuItem[]> = {
