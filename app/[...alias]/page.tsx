@@ -1,4 +1,3 @@
-import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { fetchPage } from '@/lib/drupalClient';
 import DynamicComponent from '@/components/DynamicComponent';
@@ -16,9 +15,7 @@ export default async function DrupalPage({ params }: PageProps) {
 
   let pageData;
   try {
-    const headersList = await headers();
-    // fetchPage handles cookie forwarding and redirects automatically
-    pageData = await fetchPage(path, headersList);
+    pageData = await fetchPage(path);
   } catch (error: any) {
     if (error.statusCode === 404) {
       notFound();
@@ -71,8 +68,7 @@ export async function generateMetadata({ params }: PageProps) {
   const path = `/${alias.join('/')}`;
 
   try {
-    const headersList = await headers();
-    const pageData = await fetchPage(path, headersList);
+    const pageData = await fetchPage(path);
 
     const titleMeta = pageData.metatags?.meta.find(
       (meta) => meta.name === 'title'

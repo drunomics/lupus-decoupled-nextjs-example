@@ -1,4 +1,3 @@
-import { headers } from 'next/headers';
 import { fetchPage } from '@/lib/drupalClient';
 import DynamicComponent from '@/components/DynamicComponent';
 import Breadcrumbs from '@/components/Breadcrumbs';
@@ -8,8 +7,7 @@ export default async function Home() {
   // Fetch Drupal front page
   let pageData;
   try {
-    const headersList = await headers();
-    pageData = await fetchPage('/', headersList);
+    pageData = await fetchPage('/');
   } catch (error: any) {
     console.error('Failed to fetch home page:', error);
     return (

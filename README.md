@@ -15,9 +15,7 @@
 - Messages
 - Drupal error pages
 - Drupal redirect support (301, 302, 303, 307, 308)
-- **Cookie forwarding** - Authentication cookies are forwarded to Drupal for personalized content
 - **Menu support** - Main menu integrated in layout with support for nested items
-- **Header pass-through** - Drupal cache headers, language, and other headers properly forwarded
 - **App Router support** - Full Next.js App Router compatibility with streaming and server components
 
 ### Not or not fully supported

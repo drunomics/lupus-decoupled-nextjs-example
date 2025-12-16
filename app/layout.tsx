@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import { headers } from 'next/headers';
 import "./globals.css";
 import Menu from "@/components/Menu";
 import { fetchMenu } from "@/lib/drupalClient";
@@ -26,11 +25,10 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Fetch main menu with cookie forwarding for authenticated menu items
+  // Fetch main menu
   let mainMenu: any[] = [];
   try {
-    const headersList = await headers();
-    const menuData = await fetchMenu(headersList);
+    const menuData = await fetchMenu();
     // Ensure we have a valid array
     mainMenu = Array.isArray(menuData) ? menuData : [];
   } catch (error) {

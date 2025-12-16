@@ -114,7 +114,7 @@ export const mockPages: Record<string, any> = {
     content: {
       element: 'node--default',
       title: 'Page 1',
-      body: '<p>Welcome to Page 1. This is an example of a simple Drupal page rendered in Next.js.</p><p>The content you see here is fetched from the mock API and demonstrates cookie forwarding, header pass-through, and component rendering.</p>'
+      body: '<p>Welcome to Page 1. This is an example of a simple Drupal page rendered in Next.js.</p><p>The content you see here is fetched from the mock API and demonstrates component rendering.</p>'
     }
   },
   'node/2': {
