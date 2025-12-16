@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { fetchPageForAppRouter } from '@/lib/drupalClient';
+import { fetchPage } from '@/lib/drupalClient';
 import DynamicComponent from '@/components/DynamicComponent';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import Message from '@/components/Message';
@@ -17,8 +17,8 @@ export default async function DrupalPage({ params }: PageProps) {
   let pageData;
   try {
     const headersList = await headers();
-    // fetchPageForAppRouter handles cookie forwarding and redirects automatically
-    pageData = await fetchPageForAppRouter(path, headersList);
+    // fetchPage handles cookie forwarding and redirects automatically
+    pageData = await fetchPage(path, headersList);
   } catch (error: any) {
     if (error.statusCode === 404) {
       notFound();
@@ -72,7 +72,7 @@ export async function generateMetadata({ params }: PageProps) {
 
   try {
     const headersList = await headers();
-    const pageData = await fetchPageForAppRouter(path, headersList);
+    const pageData = await fetchPage(path, headersList);
 
     const titleMeta = pageData.metatags?.meta.find(
       (meta) => meta.name === 'title'

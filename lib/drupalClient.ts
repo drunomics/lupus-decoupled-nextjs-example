@@ -1,5 +1,4 @@
-import axios, { AxiosResponse, AxiosError } from "axios"
-import { ServerResponse } from 'http';
+import axios, { AxiosError } from "axios"
 import https from 'https';
 // @ts-expect-error - next/config lacks type declarations
 import getConfig from 'next/config';
@@ -23,23 +22,10 @@ const FALLBACK_PROXY_HEADERS = [
     'accept-language'
 ];
 
-const FALLBACK_PASS_THROUGH_HEADERS = [
-    'cache-control',
-    'content-language',
-    'set-cookie',
-    'x-drupal-cache',
-    'x-drupal-dynamic-cache',
-    'etag',
-    'vary'
-];
-
-// Get headers from Next.js config with fallbacks
-function getDrupalConfig() {
+// Get proxy headers from Next.js config with fallbacks
+function getProxyHeaders(): string[] {
     const { serverRuntimeConfig } = getConfig() || {};
-    return {
-        proxyHeaders: serverRuntimeConfig?.drupal?.proxyHeaders ?? FALLBACK_PROXY_HEADERS,
-        passThroughHeaders: serverRuntimeConfig?.drupal?.passThroughHeaders ?? FALLBACK_PASS_THROUGH_HEADERS
-    };
+    return serverRuntimeConfig?.drupal?.proxyHeaders ?? FALLBACK_PROXY_HEADERS;
 }
 
 export const drupalClient = axios.create({
@@ -52,16 +38,10 @@ export const drupalClient = axios.create({
     })
 });
 
-function handleError(error: AxiosError, serverResponse?: ServerResponse): ErrorResponse {
+function handleError(error: AxiosError): ErrorResponse {
     if (error.response) {
         const responseData = error.response.data as PageData;
         responseData.statusCode = error.response.status;
-
-        if (serverResponse) {
-            serverResponse.statusCode = error.response.status;
-            // Pass through headers from error responses too
-            setResponseHeaders(error.response, serverResponse);
-        }
 
         return {
             statusCode: error.response.status,
@@ -90,53 +70,24 @@ function validateResponse(data: PageData): void {
     }
 }
 
-function handleRedirect(data: PageData, serverResponse?: ServerResponse): boolean {
-    if (!data.redirect) return false;
-
-    const { url, statusCode = 302, external = false } = data.redirect;
-
-    if (serverResponse) {
-        // Server-side redirect
-        // Validate redirect status code
-        const validRedirectCode = [301, 302, 303, 307, 308].includes(statusCode)
-            ? statusCode
-            : 302;
-
-        serverResponse.writeHead(validRedirectCode, {
-            Location: url
-        });
-        serverResponse.end();
-        return true;
-    } else {
-        // Client-side redirect - handled by the page component
-        return true;
-    }
-}
-
 function extractRequestHeaders(
     incomingHeaders: Record<string, string> = {},
     proxyHeaders?: string[]
 ): Record<string, string> {
-    const headers = proxyHeaders ?? getDrupalConfig().proxyHeaders;
-    return Object.fromEntries(
-        headers
-            .map((header: string) => [header.toLowerCase(), incomingHeaders[header.toLowerCase()]])
-            .filter(([_, value]: [string, string | undefined]) => value !== undefined)
-    );
+    const headers = proxyHeaders ?? getProxyHeaders();
+    const entries = headers
+        .map((header) => [header.toLowerCase(), incomingHeaders[header.toLowerCase()]] as const)
+        .filter((entry): entry is [string, string] => entry[1] !== undefined);
+    return Object.fromEntries(entries);
 }
 
-function setResponseHeaders(
-    response: AxiosResponse,
-    serverResponse: ServerResponse,
-    passThroughHeaders?: string[]
-): void {
-    const headers = passThroughHeaders ?? getDrupalConfig().passThroughHeaders;
-    headers.forEach((header: string) => {
-        const value = response.headers[header.toLowerCase()];
-        if (value) {
-            serverResponse.setHeader(header, value);
-        }
+// Convert Next.js Headers object to plain object
+function convertNextHeaders(headers: Headers): Record<string, string> {
+    const headersObj: Record<string, string> = {};
+    headers.forEach((value, key) => {
+        headersObj[key.toLowerCase()] = value;
     });
+    return headersObj;
 }
 
 // Transform Drupal menu items to our format
@@ -148,75 +99,62 @@ function transformDrupalMenuItem(item: DrupalMenuItem): MenuItem {
     };
 }
 
+/**
+ * Fetch menu from Drupal
+ * @param headers Next.js Headers object
+ * @param options Options for fetching menu data
+ */
 export async function fetchMenu(
-    incomingHeaders?: Record<string, string>,
-    serverResponse?: ServerResponse,
-    options: {
-        proxyHeaders?: string[];
-        passThroughHeaders?: string[];
-    } = {}
+    headers?: Headers,
+    options?: { proxyHeaders?: string[] }
 ): Promise<MenuItem[]> {
     try {
-        const headers = extractRequestHeaders(
-            incomingHeaders,
-            options.proxyHeaders
-        );
+        const headersObj = headers ? convertNextHeaders(headers) : {};
+        const requestHeaders = extractRequestHeaders(headersObj, options?.proxyHeaders);
 
-        const response = await drupalClient.get<DrupalMenuItem[]>('/api/menu_items/main', { headers });
+        const response = await drupalClient.get<DrupalMenuItem[]>('/api/menu_items/main', { headers: requestHeaders });
 
-        if (serverResponse) {
-            setResponseHeaders(response, serverResponse, options.passThroughHeaders);
-        }
-
-        // Transform Drupal menu items to our format
         if (Array.isArray(response.data)) {
             return response.data.map(transformDrupalMenuItem);
         }
 
         return [];
     } catch (error) {
-        // Return empty array on error instead of throwing
         console.error('Failed to fetch menu:', error);
         return [];
     }
 }
 
+/**
+ * Fetch page data from Drupal
+ * @param path Drupal path
+ * @param headers Next.js Headers object
+ * @param options Options for fetching page data
+ */
 export async function fetchPage(
     path: string,
-    incomingHeaders?: Record<string, string>,
-    serverResponse?: ServerResponse,
-    options: {
-        proxyHeaders?: string[];
-        passThroughHeaders?: string[];
-    } = {}
+    headers?: Headers,
+    options?: { proxyHeaders?: string[] }
 ): Promise<PageData> {
     try {
         const cleanPath = path.startsWith('/') ? path.slice(1) : path;
-        const headers = extractRequestHeaders(
-            incomingHeaders,
-            options.proxyHeaders
-        );
+        const headersObj = headers ? convertNextHeaders(headers) : {};
+        const requestHeaders = extractRequestHeaders(headersObj, options?.proxyHeaders);
 
-        const response = await drupalClient.get<PageData>(cleanPath, { headers });
-
-        if (serverResponse) {
-            setResponseHeaders(response, serverResponse, options.passThroughHeaders);
-        }
+        const response = await drupalClient.get<PageData>(cleanPath, { headers: requestHeaders });
 
         validateResponse(response.data);
 
-        // Handle redirects
+        // Handle redirects using Next.js redirect
         if (response.data.redirect) {
-            const isRedirecting = handleRedirect(response.data, serverResponse);
-            if (isRedirecting) {
-                return response.data; // Let the page component handle client-side redirects
-            }
+            const { redirect } = await import('next/navigation');
+            redirect(response.data.redirect.url);
         }
 
         response.data.statusCode = response.status;
         return response.data;
     } catch (error) {
-        const errorResponse = handleError(error as AxiosError, serverResponse);
+        const errorResponse = handleError(error as AxiosError);
         if (errorResponse.data) {
             return errorResponse.data;
         }
@@ -224,63 +162,3 @@ export async function fetchPage(
     }
 }
 
-/**
- * Convert Next.js Headers object to plain object
- * @param headers Next.js Headers object
- * @returns Plain object with headers
- */
-export function convertNextHeaders(headers: Headers): Record<string, string> {
-    const headersObj: Record<string, string> = {};
-    headers.forEach((value, key) => {
-        headersObj[key.toLowerCase()] = value;
-    });
-    return headersObj;
-}
-
-/**
- * Simplified API for App Router - handles redirects via Next.js redirect
- * @param path Drupal path
- * @param headers Next.js Headers object
- * @param options Options for fetching page data
- * @returns Page data
- */
-export async function fetchPageForAppRouter(
-    path: string,
-    headers?: Headers,
-    options?: {
-        proxyHeaders?: string[];
-    }
-): Promise<PageData> {
-    const headersObj = headers ? convertNextHeaders(headers) : undefined;
-    const pageData = await fetchPage(path, headersObj, undefined, options);
-
-    // For App Router, handle redirects using Next.js redirect function
-    if (pageData.redirect) {
-        const { redirect } = await import('next/navigation');
-        const redirectType = [301, 308].includes(pageData.redirect.statusCode)
-            ? 'replace' as const
-            : 'push' as const;
-
-        redirect(pageData.redirect.url, redirectType);
-    }
-
-    return pageData;
-}
-
-/**
- * Simplified API for App Router menus
- * @param menuName Menu name
- * @param headers Next.js Headers object
- * @param options Options for fetching menu data
- * @returns Menu data
- */
-export async function fetchMenuForAppRouter(
-    menuName: string = 'main',
-    headers?: Headers,
-    options?: {
-        proxyHeaders?: string[];
-    }
-): Promise<MenuItem[]> {
-    const headersObj = headers ? convertNextHeaders(headers) : undefined;
-    return fetchMenu(headersObj, undefined, options);
-}

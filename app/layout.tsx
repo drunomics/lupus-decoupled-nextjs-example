@@ -3,7 +3,7 @@ import localFont from "next/font/local";
 import { headers } from 'next/headers';
 import "./globals.css";
 import Menu from "@/components/Menu";
-import { fetchMenuForAppRouter } from "@/lib/drupalClient";
+import { fetchMenu } from "@/lib/drupalClient";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -30,7 +30,7 @@ export default async function RootLayout({
   let mainMenu: any[] = [];
   try {
     const headersList = await headers();
-    const menuData = await fetchMenuForAppRouter('main', headersList);
+    const menuData = await fetchMenu(headersList);
     // Ensure we have a valid array
     mainMenu = Array.isArray(menuData) ? menuData : [];
   } catch (error) {

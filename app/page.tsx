@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import { fetchPageForAppRouter } from '@/lib/drupalClient';
+import { fetchPage } from '@/lib/drupalClient';
 import DynamicComponent from '@/components/DynamicComponent';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import Message from '@/components/Message';
@@ -9,7 +9,7 @@ export default async function Home() {
   let pageData;
   try {
     const headersList = await headers();
-    pageData = await fetchPageForAppRouter('/', headersList);
+    pageData = await fetchPage('/', headersList);
   } catch (error: any) {
     console.error('Failed to fetch home page:', error);
     return (
