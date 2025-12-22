@@ -6,7 +6,7 @@ export default function DrupalMarkup({ content }: DrupalMarkupProps) {
     return (
         <div 
             className="drupal-markup"
-            dangerouslySetInnerHTML={{ __html: content }}
+            dangerouslySetInnerHTML={{ __html: content || '' }}
         />
     );
 }
