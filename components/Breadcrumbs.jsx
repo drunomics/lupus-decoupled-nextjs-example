@@ -6,15 +6,18 @@ export default function Breadcrumbs({ breadcrumbs }) {
     }
 
     return (
-        <nav aria-label="breadcrumb" className="my-6 mx-4">
-            <ol className="flex list-none space-x-2">
+        <nav aria-label="breadcrumb" className="mb-6">
+            <ol className="flex list-none space-x-2 text-sm">
                 {breadcrumbs.map((item, index) => (
-                    <li key={index} className="flex items-center text-blue-600">
-                        <Link href={item.url}>
+                    <li key={index} className="flex items-center">
+                        <Link
+                            href={item.url}
+                            className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                        >
                             {item.label}
                         </Link>
                         {index < breadcrumbs.length - 1 && (
-                            <span className="mx-2 text-gray-500">/</span>
+                            <span className="mx-2 text-gray-400">/</span>
                         )}
                     </li>
                 ))}

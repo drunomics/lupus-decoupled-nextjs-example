@@ -2,7 +2,7 @@ import dynamic from "next/dynamic";
 import components from "./componentRegistery";
 
 type DynamicComponentProps = {
-    element: string;
+    element?: string;
     content: { [key: string]: any };
 }
 
@@ -29,8 +29,13 @@ function findComponent(elementName: string): string | null {
 }
 
 export default function DynamicComponent({ element, content }: DynamicComponentProps) {
+    if (!element) {
+        console.warn('DynamicComponent: element prop is missing or undefined');
+        return <div>Component element is missing</div>;
+    }
+
     const componentName = findComponent(element);
-    
+
     if (!componentName) {
         console.warn(`No component found for "${element}" or any of its fallbacks. Available components:`, Object.keys(components));
         return <div>Component "{element}" not found</div>;

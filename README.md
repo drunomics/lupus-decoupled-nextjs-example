@@ -10,14 +10,15 @@
 - Rendering custom elements via components
 - Rendering a tree of custom elements
 - Forwarding /some-page requests to the backend and rendering results
-- breadcrumbs
-- metatags
-- messages
+- Breadcrumbs
+- Metatags
+- Messages
 - Drupal error pages
-- Drupal redirect support
-  
+- Drupal redirect support (301, 302, 303, 307, 308)
+- **Menu support** - Main menu integrated in layout with support for nested items
+- **App Router support** - Full Next.js App Router compatibility with streaming and server components
+
 ### Not or not fully supported
-- Menus (component needs to be ported)
 - Drupal forms
 - Frontend login
 - Custom layouts

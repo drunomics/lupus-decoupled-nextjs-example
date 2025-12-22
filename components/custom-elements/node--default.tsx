@@ -1,5 +1,5 @@
 import React from 'react';
-import DynamicComponent from '../DynamicComponent';
+import SlotData from './SlotData';
 
 type NodeProps = {
     title?: string;
@@ -28,24 +28,18 @@ const Node: React.FC<NodeProps> = ({
             {title && <h2>Node: {title}</h2>}
             
             {image && (
-                <div dangerouslySetInnerHTML={{ __html: image.content }} />
+                <SlotData content={image.content} />
             )}
             
             {body && (
-                <div className="prose max-w-none [&_a]:text-blue-600" 
-                    dangerouslySetInnerHTML={{ 
-                        __html: Array.isArray(body) ? body.join('') : body 
-                    }} 
+                <SlotData
+                    content={body}
+                    className="prose max-w-none [&_a]:text-blue-600"
                 />
             )}
             
             {sections && (
-                <div>
-                    <DynamicComponent 
-                        element={sections.element} 
-                        content={sections} 
-                    />
-                </div>
+                <SlotData content={sections.content} />
             )}
         </div>
     );
