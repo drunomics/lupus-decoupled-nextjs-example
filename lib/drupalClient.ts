@@ -24,13 +24,23 @@ export const drupalClient = axios.create({
 
 function handleError(error: AxiosError): ErrorResponse {
     if (error.response) {
-        const responseData = error.response.data as PageData;
-        responseData.statusCode = error.response.status;
+        const responseData = error.response.data;
 
+        // Verify responseData is an object before trying to mutate it
+        if (typeof responseData === 'object' && responseData !== null) {
+            (responseData as PageData).statusCode = error.response.status;
+
+            return {
+                statusCode: error.response.status,
+                message: error.message,
+                data: responseData as PageData
+            };
+        }
+
+        // Handle case where body is string (e.g. default 404 page) or other primitive
         return {
             statusCode: error.response.status,
-            message: error.message,
-            data: responseData
+            message: typeof responseData === 'string' ? responseData : error.message,
         };
     } else if (error.request) {
         return {
