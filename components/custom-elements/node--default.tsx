@@ -13,13 +13,17 @@ type NodeProps = {
         element: string;
         content: any;
     };
+    slots?: {
+        body: string;
+    };
 }
 
 const Node: React.FC<NodeProps> = ({ 
     title, 
     type,
     created, 
-    body, 
+    body,
+    slots,
     image, 
     sections
 }) => {
@@ -29,6 +33,13 @@ const Node: React.FC<NodeProps> = ({
             
             {image && (
                 <SlotData content={image.content} />
+            )}
+
+            {slots && (
+                <SlotData
+                    content={slots.body}
+                    className="prose max-w-none [&_a]:text-blue-600"
+                />
             )}
             
             {body && (
